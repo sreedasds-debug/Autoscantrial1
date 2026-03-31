@@ -5,8 +5,8 @@ import requests
 import time
 from datetime import datetime
 
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-CHAT_ID = "YOUR_CHAT_ID"
+BOT_TOKEN = "8329251588:AAEqrvL0X3R5cDL3sF1Yc9LRrwDnk5lxwJU"
+CHAT_ID = "567397871"
 
 pairs = [
     "EURUSD=X", "GBPUSD=X", "USDJPY=X",
