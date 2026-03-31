@@ -130,8 +130,6 @@ def run_bot():
         except Exception as e:
             print(f"Error {pair}: {e}")
 
-# Send Startup message
-send_telegram ("bot is live")
 # Main loop
 while True:
     run_bot()
