@@ -4,10 +4,11 @@ import ta
 import requests
 import time
 from datetime import datetime
-
 import os
-BOT_TOKEN = os.getnv("8329251588:AAEqrvL0X3R5cDL3sF1Yc9LRrwDnk5lxwJU")
-CHAT_ID = os.getnv("567397871")
+
+# گرفتن المتغيرات من Railway
+BOT_TOKEN = os.getenv("8329251588:AAEqrvL0X3R5cDL3sF1Yc9LRrwDnk5lxwJU")
+CHAT_ID = os.getenv("567397871")
 
 pairs = [
     "EURUSD=X", "GBPUSD=X", "USDJPY=X",
@@ -19,16 +20,21 @@ last_signal_time = {}
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+    try:
+        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+    except:
+        print("Telegram send failed")
 
 def calculate_indicators(df):
-    adx = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close'])
+    adx = ta.trend.ADXIndicator(df['High'], df['Low'], df['Close'], window=14)
     df['ADX'] = adx.adx()
     df['DI+'] = adx.adx_pos()
     df['DI-'] = adx.adx_neg()
-    df['RSI'] = ta.momentum.RSIIndicator(df['Close']).rsi()
+    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
     df['EMA50'] = ta.trend.EMAIndicator(df['Close'], window=50).ema_indicator()
-    df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close']).average_true_range()
+    df['ATR'] = ta.volatility.AverageTrueRange(
+        df['High'], df['Low'], df['Close'], window=14
+    ).average_true_range()
     return df
 
 def is_new_candle(df, pair):
@@ -38,7 +44,7 @@ def is_new_candle(df, pair):
         return True
     return False
 
-def get_signal(df, pair):
+def get_signal(df):
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
@@ -61,10 +67,8 @@ def get_signal(df, pair):
     score = 0
     if adx_cond: score += 1
     if rsi_cond: score += 1
-
     if buy_cross: score += 2
     if sell_cross: score += 2
-
     if trend_buy or trend_sell: score += 1
     if breakout_buy or breakout_sell: score += 1
 
@@ -72,11 +76,13 @@ def get_signal(df, pair):
 
     atr = last['ATR']
 
+    # BUY signal
     if buy_cross and adx_cond and rsi_cond and trend_buy and breakout_buy:
         sl = last['Close'] - atr
         tp = last['Close'] + (2 * atr)
         return "BUY", confidence, sl, tp
 
+    # SELL signal
     elif sell_cross and adx_cond and rsi_cond and trend_sell and breakout_sell:
         sl = last['Close'] + atr
         tp = last['Close'] - (2 * atr)
@@ -89,15 +95,17 @@ def run_bot():
         try:
             df = yf.download(pair, interval="4h", period="60d")
 
-            if df.empty:
+            # Safety check
+            if df.empty or len(df) < 50:
                 continue
 
             df = calculate_indicators(df)
 
+            # Avoid duplicate signals
             if not is_new_candle(df, pair):
                 continue
 
-            signal, confidence, sl, tp = get_signal(df, pair)
+            signal, confidence, sl, tp = get_signal(df)
 
             if signal:
                 last = df.iloc[-1]
@@ -122,6 +130,7 @@ def run_bot():
         except Exception as e:
             print(f"Error {pair}: {e}")
 
+# Main loop
 while True:
     run_bot()
-    time.sleep(300)  # checks every 5 minutes
+    time.sleep(300)  # every 5 minutes
