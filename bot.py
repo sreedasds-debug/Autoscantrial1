@@ -134,3 +134,5 @@ def run_bot():
 while True:
     run_bot()
     time.sleep(300)  # every 5 minutes
+
+send_telegram ("bot online")
